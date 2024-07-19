@@ -66,7 +66,7 @@ class BaseModel(metaclass=DeclarativeMeta):
 
 @declarative_mixin
 class TimestampMixin:
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), default=func.now(), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), default=func.now(), server_default=func.now(), onupdate=func.now(),
     )
