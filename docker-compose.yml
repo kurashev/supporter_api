@@ -1,0 +1,54 @@
+version: "1.0"
+
+services:
+  apiservice:
+    container_name: "apiservice"
+    image: apiservice
+    build:
+      context: .
+    stop_signal: SIGINT
+    command: python main.py
+    restart: unless-stopped
+    env_file:
+      - ".env"
+    environment:
+      DB_HOST: database
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - apinet
+    ports:
+      - "8000:8000"
+  database:
+    image: postgres:14-alpine
+    ports:
+      - "127.0.0.1:5433:5432"
+    restart: unless-stopped
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    env_file:
+      - ".env"
+    environment:
+      POSTGRES_USER: $DB_USER
+      POSTGRES_PASSWORD: $DB_PASS
+      POSTGRES_DB: $DB_NAME
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200k"
+        max-file: "10"
+    healthcheck:
+      test: "pg_isready -d ${DB_NAME} -U ${DB_USER}"
+      interval: 3s
+      retries: 5
+      timeout: 15s
+    networks:
+      - apinet
+
+volumes:
+  pg_data: {}
+
+networks:
+  apinet:
+    driver: bridge
