@@ -1,6 +1,7 @@
-from sqlalchemy import insert, select, or_
+from sqlalchemy import insert, select, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.common.misc.user_role import UserRoleEnum
 from src.infra import dto
 from src.infra.database.dao.base import BaseDAO
 from src.infra.database.models import User
@@ -36,3 +37,10 @@ class UserDAO(BaseDAO):
             return None
 
         return user.to_dto()
+
+    async def edit_user_role(self, username: str, role: UserRoleEnum) -> None:
+        stmt = update(User).where(User.username == username).values(user_role=role)
+
+        await self._session.execute(stmt)
+
+

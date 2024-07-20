@@ -2,8 +2,6 @@ from src.common.misc.user_role import UserRoleEnum
 from src.infra.schemas.base import BaseSchemaModel
 
 
-class UserSchema(BaseSchemaModel):
-    id: int
+class ChangeRoleRequest(BaseSchemaModel):
     username: str
-    email: str
-    user_role: UserRoleEnum
+    new_role: UserRoleEnum

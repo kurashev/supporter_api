@@ -1,5 +1,6 @@
+import functools
 from datetime import datetime, timezone, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Callable
 from fastapi import Request, HTTPException, status, Depends
 
 from jose import jwt, JWTError
@@ -8,7 +9,9 @@ from pydantic.types import SecretStr
 
 from src.common.config.auth import AuthConfig
 from src.common.misc.stub import Stub
+from src.common.misc.user_role import UserRoleEnum
 from src.infra.database.dao.holder import HolderDAO
+from src.infra.schemas.user import UserSchema
 
 if TYPE_CHECKING:
     from src.infra.dto import UserDTO
@@ -54,5 +57,17 @@ async def get_current_user(token: str = Depends(get_token), holder: HolderDAO = 
     user = await holder.user.get_user_by_user_id(int(user_id))
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='User not found')
+    return UserSchema.from_orm(user)
 
-    return user
+
+class RoleChecker:
+    def __init__(self, required_roles: List[UserRoleEnum]):
+        self.required_roles = required_roles
+
+    async def __call__(self, current_user: UserSchema = Depends(get_current_user)):
+        if current_user.user_role not in self.required_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not enough permissions",
+            )
+        return current_user

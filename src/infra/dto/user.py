@@ -1,4 +1,8 @@
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.common.misc.user_role import UserRoleEnum
 
 
 @dataclass
@@ -7,4 +11,4 @@ class UserDTO:
     username: str
     email: str
     password: str
-    is_support: bool
+    user_role: "UserRoleEnum"
