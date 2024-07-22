@@ -1,4 +1,4 @@
-from src.common.misc.user_role import UserRoleEnum
+from src.common.misc.db_enums import UserRoleEnum
 from src.infra.schemas.base import BaseSchemaModel
 
 

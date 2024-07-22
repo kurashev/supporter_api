@@ -3,7 +3,7 @@ from typing import Callable
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from src.common.misc.stub import Stub
-from src.common.misc.user_role import UserRoleEnum
+from src.common.misc.db_enums import UserRoleEnum
 from src.infra.database.dao.holder import HolderDAO
 from src.infra.dto import UserDTO
 from src.infra.schemas.admin import ChangeRoleRequest
@@ -13,8 +13,8 @@ router = APIRouter(prefix="/admin", tags=["Admin"])
 
 
 @router.put("/change-role/", dependencies=[Depends(can_change_role)])
-async def get_me(request: ChangeRoleRequest, verify: Callable[[UserDTO, UserRoleEnum], None] = Depends(can_change_role),
-                 holder: HolderDAO = Depends(Stub(HolderDAO))):
+async def change_role(request: ChangeRoleRequest, verify: Callable[[UserDTO, UserRoleEnum], None] = Depends(can_change_role),
+                      holder: HolderDAO = Depends(Stub(HolderDAO))):
     target_user = await holder.user.get_user(username=request.username)
     if not target_user:
         raise HTTPException(

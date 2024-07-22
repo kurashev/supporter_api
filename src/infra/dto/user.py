@@ -1,8 +1,9 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.common.misc.user_role import UserRoleEnum
+    from src.common.misc.db_enums import UserRoleEnum
+    from .ticket import TicketDTO
 
 
 @dataclass
@@ -12,3 +13,4 @@ class UserDTO:
     email: str
     password: str
     user_role: "UserRoleEnum"
+    tickets: list["TicketDTO"] = field(default_factory=list)

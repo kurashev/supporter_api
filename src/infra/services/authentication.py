@@ -9,7 +9,7 @@ from pydantic.types import SecretStr
 
 from src.common.config.auth import AuthConfig
 from src.common.misc.stub import Stub
-from src.common.misc.user_role import UserRoleEnum
+from src.common.misc.db_enums import UserRoleEnum
 from src.infra.database.dao.holder import HolderDAO
 from src.infra.schemas.user import UserSchema
 
@@ -61,11 +61,17 @@ async def get_current_user(token: str = Depends(get_token), holder: HolderDAO = 
 
 
 class RoleChecker:
-    def __init__(self, required_roles: List[UserRoleEnum]):
-        self.required_roles = required_roles
+    def __init__(self, required_role: UserRoleEnum):
+        self.required_role = required_role
 
     async def __call__(self, current_user: UserSchema = Depends(get_current_user)):
-        if current_user.user_role not in self.required_roles:
+        role_hierarchy = {
+            UserRoleEnum.USER: 1,
+            UserRoleEnum.SUPPORT: 2,
+            UserRoleEnum.ADMIN: 3,
+            UserRoleEnum.SUPER_ADMIN: 4
+        }
+        if role_hierarchy[self.required_role] > role_hierarchy[current_user.user_role]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not enough permissions",

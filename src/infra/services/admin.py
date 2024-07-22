@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException, status
 
-from src.common.misc.user_role import UserRoleEnum
+from src.common.misc.db_enums import UserRoleEnum
 from src.infra.dto import UserDTO
 from src.infra.schemas.user import UserSchema
 from src.infra.services.authentication import get_current_user
