@@ -1,20 +1,16 @@
-import functools
 from datetime import datetime, timezone, timedelta
-from typing import TYPE_CHECKING, List, Callable
-from fastapi import Request, HTTPException, status, Depends
+from typing import Union, Any
 
+from fastapi import Request, HTTPException, status, Depends
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 from pydantic.types import SecretStr
 
 from src.common.config.auth import AuthConfig
-from src.common.misc.stub import Stub
 from src.common.misc.db_enums import UserRoleEnum
+from src.common.misc.stub import Stub
 from src.infra.database.dao.holder import HolderDAO
 from src.infra.schemas.user import UserSchema
-
-if TYPE_CHECKING:
-    from src.infra.dto import UserDTO
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -29,11 +25,20 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(days=30)
+    expire = datetime.now(timezone.utc) + timedelta(days=21)
     to_encode.update({"exp": expire})
     auth_data = AuthConfig.compose()
-    encode_jwt = jwt.encode(to_encode, auth_data.secret_key, algorithm=auth_data.algorithm)
+    encode_jwt = jwt.encode(to_encode, auth_data.jwt_secret_key, algorithm=auth_data.algorithm)
     return encode_jwt
+
+
+def create_refresh_token(subject: Union[str, Any]) -> str:
+    expires_delta = datetime.utcnow() + timedelta(days=7)
+
+    to_encode = {"exp": expires_delta, "sub": str(subject)}
+    auth_data = AuthConfig.compose()
+    encoded_jwt = jwt.encode(to_encode, auth_data.jwt_refresh_secret_key, auth_data.algorithm)
+    return encoded_jwt
 
 
 def get_token(request: Request):
@@ -46,7 +51,7 @@ def get_token(request: Request):
 async def get_current_user(token: str = Depends(get_token), holder: HolderDAO = Depends(Stub(HolderDAO))):
     try:
         auth_data = AuthConfig.compose()
-        payload = jwt.decode(token, auth_data.secret_key, algorithms=[auth_data.algorithm])
+        payload = jwt.decode(token, auth_data.jwt_secret_key, algorithms=[auth_data.algorithm])
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Token is invalid')
 

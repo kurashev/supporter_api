@@ -12,10 +12,10 @@ class UserDAO(BaseDAO):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
-    async def add_user(self, username: str, email: str, password: str):
-        stmt = insert(User).values(username=username, email=email, password=password)
+    async def add_user(self, username: str, email: str, password: str) -> dto.UserDTO:
+        stmt = insert(User).values(username=username, email=email, password=password).returning(User)
 
-        await self._session.execute(stmt)
+        return (await self._session.scalars(stmt)).first().to_dto()
 
     async def get_user(self, username: str | None = None, email: str | None = None) -> dto.UserDTO | None:
         stmt = select(User).where(or_(User.username == username, User.email == email))

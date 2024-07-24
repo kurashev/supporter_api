@@ -1,4 +1,5 @@
-from typing import Sequence
+from _operator import or_
+from typing import Sequence, TYPE_CHECKING
 
 from sqlalchemy import insert, select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +15,8 @@ class TicketDAO(BaseDAO):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
-    async def add_ticket(self, user_id: int, status: TicketStatusEnum = TicketStatusEnum.WAIT_SUPPORT_ANSWER) -> dto.TicketDTO:
+    async def add_ticket(self, user_id: int,
+                         status: TicketStatusEnum = TicketStatusEnum.WAIT_SUPPORT_ANSWER) -> dto.TicketDTO:
         stmt = insert(Ticket).values(user_id=user_id, status=status).returning(Ticket)
 
         return (await self._session.scalars(stmt)).first().to_dto()
@@ -41,7 +43,27 @@ class TicketDAO(BaseDAO):
 
     async def get_tickets_by_status(self, status: TicketStatusEnum) -> list[dto.TicketDTO]:
         stmt = select(Ticket).where(Ticket.status == status).options(joinedload(Ticket.user),
-                                                                     joinedload(Ticket.messages).joinedload(TicketMessage.user))
+                                                                     joinedload(Ticket.messages).joinedload(
+                                                                         TicketMessage.user))
+
+        result = await self._session.scalars(stmt)
+
+        tickets: Sequence[Ticket] = result.unique().all()
+
+        return [ticket.to_dto_all_prefetched() for ticket in tickets]
+
+    async def get_tickets_from_request(self, user_id: int | None = None, status: TicketStatusEnum | None = None) -> \
+            list[dto.TicketDTO]:
+        stmt = select(Ticket).options(
+            joinedload(Ticket.user),
+            joinedload(Ticket.messages).joinedload(TicketMessage.user)
+        )
+
+        if user_id is not None:
+            stmt = stmt.where(Ticket.user_id == user_id)
+
+        if status is not None:
+            stmt = stmt.where(Ticket.status == status)
 
         result = await self._session.scalars(stmt)
 
@@ -54,10 +76,11 @@ class TicketDAO(BaseDAO):
 
         await self._session.execute(stmt)
 
-    async def add_ticket_message(self, ticket_id: int, user_id: int, message: str):
-        stmt = insert(TicketMessage).values(ticket_id=ticket_id, user_id=user_id, message=message)
+    async def add_ticket_message(self, ticket_id: int, user_id: int, message: str) -> dto.MessageDTO:
+        stmt = insert(TicketMessage).values(ticket_id=ticket_id, user_id=user_id, message=message).returning(
+            TicketMessage)
 
-        await self._session.execute(stmt)
+        return (await self._session.scalars(stmt)).first().to_dto()
 
     async def edit_message(self, message_id: int, message: str):
         stmt = update(TicketMessage).where(TicketMessage.id == message_id).values(message=message)
@@ -68,3 +91,16 @@ class TicketDAO(BaseDAO):
         stmt = delete(TicketMessage).where(TicketMessage.id == message_id)
 
         await self._session.execute(stmt)
+
+    async def get_message(self, message_id: int) -> dto.MessageDTO | None:
+        stmt = select(TicketMessage).where(TicketMessage.id == message_id).options(
+            joinedload(TicketMessage.user), joinedload(TicketMessage.ticket)
+        )
+
+        result = await self._session.scalars(stmt)
+
+        message: TicketMessage | None = result.first()
+
+        if not message:
+            return None
+        return message.to_dto_all_prefetched()

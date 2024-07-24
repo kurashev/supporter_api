@@ -6,7 +6,8 @@ from environs import Env
 
 @dataclass
 class AuthConfig:
-    secret_key: str
+    jwt_secret_key: str
+    jwt_refresh_secret_key: str
     algorithm: str
 
     @classmethod
@@ -15,6 +16,7 @@ class AuthConfig:
             env = Env()
             env.read_env()
         return cls(
-            secret_key=env.str("SECRET_KEY"),
+            jwt_secret_key=env.str("JWT_SECRET_KEY"),
+            jwt_refresh_secret_key=env.str("JWT_REFRESH_SECRET_KEY"),
             algorithm=env.str("ALGORITHM")
         )

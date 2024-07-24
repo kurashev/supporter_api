@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from pydantic import Field
 
@@ -42,3 +43,13 @@ class TicketsListSchema(BaseSchemaModel):
 class AddTicketMessageSchema(BaseSchemaModel):
     ticket_id: int
     message: str
+
+
+class EditTicketMessage(BaseSchemaModel):
+    message_id: int
+    new_message: str
+
+
+class EditTicketStatus(BaseSchemaModel):
+    ticket_id: int
+    status: TicketStatusEnum

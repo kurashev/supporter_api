@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi_cache.decorator import cache
 
 from src.common.misc.db_enums import UserRoleEnum, TicketStatusEnum
 from src.common.misc.stub import Stub
 from src.infra.database.dao.holder import HolderDAO
-from src.infra.schemas.ticket import TicketsListSchema, AddTicketMessageSchema
+from src.infra.schemas.ticket import TicketsListSchema, AddTicketMessageSchema, EditTicketMessage, EditTicketStatus
 from src.infra.schemas.user import UserSchema
 from src.infra.services.authentication import RoleChecker, get_current_user
 
@@ -11,10 +12,11 @@ router = APIRouter(prefix="/ticket", tags=["Tickets"])
 
 
 @router.get("/")
-async def tickets_list(ticket_status: TicketStatusEnum,
-                       user_data: UserSchema = Depends(RoleChecker(UserRoleEnum.ADMIN)),
-                       holder: "HolderDAO" = Depends(Stub(HolderDAO))):
-    tickets = await holder.ticket.get_tickets_by_status(status=ticket_status)
+@cache(expire=10, namespace="tickets")
+async def tickets_list(user_id: int | None = None, ticket_status: TicketStatusEnum | None = None,
+                       _: UserSchema = Depends(RoleChecker(UserRoleEnum.SUPPORT)),
+                       holder: HolderDAO = Depends(Stub(HolderDAO))):
+    tickets = await holder.ticket.get_tickets_from_request(user_id, ticket_status)
     return TicketsListSchema(tickets=tickets)
 
 
@@ -26,6 +28,22 @@ async def create_ticket(message: str, user: UserSchema = Depends(get_current_use
     await holder.commit()
 
     return {"success": True, "message": message}
+
+
+@router.put("/")
+async def edit_ticket_status_request(ticket: EditTicketStatus,
+                                     _: UserSchema = Depends(RoleChecker(UserRoleEnum.SUPPORT)),
+                                     holder: HolderDAO = Depends(Stub(HolderDAO))):
+    ticket_db = await holder.ticket.get_ticket_by_ticket_id(ticket.ticket_id)
+    if not ticket_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticket was not found"
+        )
+
+    await holder.ticket.edit_ticket_status(ticket.ticket_id, ticket.status)
+    await holder.commit()
+    return {"success": True, "id": ticket.ticket_id}
 
 
 @router.post("/add-message/")
@@ -50,6 +68,28 @@ async def add_message(new_message: AddTicketMessageSchema, current_user: UserSch
         await holder.ticket.edit_ticket_status(new_message.ticket_id, TicketStatusEnum.WAIT_USER_ANSWER)
     elif ticket.status == TicketStatusEnum.WAIT_USER_ANSWER and ticket.user_id == current_user.id:
         await holder.ticket.edit_ticket_status(new_message.ticket_id, TicketStatusEnum.WAIT_SUPPORT_ANSWER)
-    await holder.ticket.add_ticket_message(new_message.ticket_id, current_user.id, new_message.message)
+    message = await holder.ticket.add_ticket_message(new_message.ticket_id, current_user.id, new_message.message)
     await holder.commit()
-    return {"success": True}
+    return {"success": True, "message_id": message.id}
+
+
+@router.put("/edit-message/")
+async def edit_message(message: EditTicketMessage, current_user: UserSchema = Depends(get_current_user),
+                       holder: HolderDAO = Depends(Stub(HolderDAO))):
+    message_db = await holder.ticket.get_message(message.message_id)
+
+    if not message_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticket was not found"
+        )
+
+    if message_db.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
+
+    await holder.ticket.edit_message(message.message_id, message.new_message)
+    await holder.commit()
+
+    return {"success": True, "id": message.message_id}
